@@ -30,7 +30,11 @@ jobs:
           aws-region:            ${{ env.AWS_REGION }}
 
       - name: Login to Amazon ECR
+        id: login-ecr                # <-- IMPORTANTE
         uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Show ECR registry (debug)
+        run: echo "Registry=${{ steps.login-ecr.outputs.registry }}"
 
       - name: Build & Push image
         uses: docker/build-push-action@v6
@@ -50,7 +54,9 @@ jobs:
             --function-name "${{ env.FUNCTION_NAME }}" \
             --image-uri "$IMAGE_URI" \
             --region "${{ env.AWS_REGION }}"
-          aws lambda wait function-updated --function-name "${{ env.FUNCTION_NAME }}" --region "${{ env.AWS_REGION }}"
+          aws lambda wait function-updated \
+            --function-name "${{ env.FUNCTION_NAME }}" \
+            --region "${{ env.AWS_REGION }}"
 
       - name: Who am I?
         run: aws sts get-caller-identity
