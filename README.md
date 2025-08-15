@@ -1,4 +1,3 @@
-
 CAMELS-CL Hydrology ML — Hybrid Daily Discharge Prediction
 ==========================================================
 
@@ -12,61 +11,50 @@ Predict daily streamflow (discharge) for Chilean basins using meteorological for
 Dataset: CAMELS-CL (https://camels.cr2.cl/) (not redistributed here). You must provide raw data locally.
 
 ----------------------------------------------------------------
-
-Highlights
-----------
-- End-to-end pipeline: ingestion → features → training → diagnostics → serving.
-- Memory-safe global training (streamed construction, capped sampling).
-- Feature core via hydrologically-motivated regex filters to reduce dimensionality.
-- Target Encoding (TE) of basin_id for global model.
-- Near-zero-variance & NaN policy + persistence NSE checks.
-- Re-train “outliers” with local-lite models using top global features.
-- Deterministic serving: persisted feature order, TE mapping, and serving policy.
-- Production-grade serving: FastAPI, Docker, AWS Lambda (Function URL with IAM).
-- Observability: health/ready/metadata endpoints; CloudWatch/X-Ray; budgets & alarms (docs).
+Requirements
+------------
+  - Python 3.11
+  - Docker (with buildx)
+  - AWS CLI v2 configured (profile camelscl)
+  - Git
+  - PowerShell 7+ (Windows) or bash/zsh (Linux/Mac)
 
 ----------------------------------------------------------------
 
+Highlights
+------------
+  - End-to-end pipeline: ingestion → features → training → diagnostics → serving.
+  - Memory-safe global training (streamed construction, capped sampling).
+  - Feature core via hydrologically-motivated regex filters to reduce dimensionality.
+  - Target Encoding (TE) of basin_id for the global model.
+  - Near-zero-variance & NaN policy + persistence NSE checks.
+  - Re-train “outliers” with local-lite models using top global features.
+  - Deterministic serving: persisted feature order, TE mapping, and serving policy.
+  - Production-grade serving: FastAPI, Docker, AWS Lambda (Function URL with IAM).
+  - Observability: health/ready/metadata endpoints; CloudWatch/X-Ray; budgets & alarms.
+----------------------------------------------------------------
+
 Repository Layout
------------------
-camelscl-hydrology-ml/
-├─ data/
-│  ├─ raw/                         # CAMELS-CL original files (not included)
-│  └─ processed/
-│     ├─ *.parquet                 # normalized tables
-│     ├─ master_parts/             # master_<basin>.parquet per basin
-│     └─ features_parts/           # features_<basin>.parquet per basin
-├─ models/                         # training artifacts (dev runs)
-├─ models_release/                 # frozen artifacts for serving (prod-ready)
-│  ├─ xgb_global.json
-│  ├─ global_basin_te.json         # {"mapping": {...}, "global_mean": ...}
-│  ├─ global_feature_order.json    # {"feature_order": [..., "basin_te"]}
-│  ├─ basin_models_index.json      # per-basin model paths (optional)
-│  └─ serving_policy.json          # final gating policy
-├─ src/
-│  ├─ preprocessing/
-│  │  ├─ parse_attributes_transposed.py
-│  │  ├─ parse_timeseries_wide.py
-│  │  └─ build_master_partitioned.py
-│  ├─ features/
-│  │  └─ build_features.py
-│  ├─ models/
-│  │  ├─ train_xgboost_cpu.py          # simple baseline (optional)
-│  │  ├─ train_hybrid_models.py        # main hybrid trainer (per-basin + global)
-│  │  ├─ diagnose_basins.py            # quality & metrics diagnostics
-│  │  ├─ build_policy_from_diagnostics.py
-│  │  ├─ augment_metrics_with_persistence.py
-│  │  └─ retrain_outliers.py           # local-lite retraining for worst basins
-│  └─ serving/
-│     ├─ inference_handler.py          # FastAPI app + Lambda handler
-│     └─ __init__.py
-├─ Dockerfile                         # local serving image (FastAPI on 0.0.0.0:8080)
-├─ Dockerfile.lambda                  # AWS Lambda container image
-├─ requirements.txt / requirements-serving.txt
-└─ README.md
+------------
+<pre> ```text camelscl-hydrology-ml/ ├─ data/ │ ├─ raw/ # CAMELS-CL original files (not included) │ └─ processed/ │ ├─ *.parquet # normalized tables │ ├─ master_parts/ # master_<basin>.parquet per basin │ └─ features_parts/ # features_<basin>.parquet per basin ├─ models/ # training artifacts (dev runs) ├─ models_release/ # frozen artifacts for serving (prod-ready) │ ├─ xgb_global.json │ ├─ global_basin_te.json # {"mapping": {...}, "global_mean": ...} │ ├─ global_feature_order.json # {"feature_order": [..., "basin_te"]} │ ├─ basin_models_index.json # per-basin model paths (optional) │ └─ serving_policy.json # final gating policy ├─ src/ │ ├─ preprocessing/ │ │ ├─ parse_attributes_transposed.py │ │ ├─ parse_timeseries_wide.py │ │ └─ build_master_partitioned.py │ ├─ features/ │ │ └─ build_features.py │ ├─ models/ │ │ ├─ train_xgboost_cpu.py # simple baseline (optional) │ │ ├─ train_hybrid_models.py # main hybrid trainer (per-basin + global) │ │ ├─ diagnose_basins.py # quality & metrics diagnostics │ │ ├─ build_policy_from_diagnostics.py │ │ ├─ augment_metrics_with_persistence.py │ │ └─ retrain_outliers.py # local-lite retraining for worst basins │ └─ serving/ │ ├─ inference_handler.py # FastAPI app + Lambda handler │ └─ __init__.py ├─ Dockerfile # local serving image (FastAPI on 0.0.0.0:8080) ├─ Dockerfile.lambda # AWS Lambda container image ├─ requirements.txt / requirements-serving.txt └─ README.md ``` </pre>
 
 All Python packages under src/ include __init__.py to ensure imports work locally and inside Lambda.
 
+----------------------------------------------------------------
+Quickstart (Local)
+
+  - Linux/Mac
+
+```bash
+export MODELS_DIR=./models_release
+uvicorn src.serving.inference_handler:app --host 0.0.0.0 --port 8000 --reload
+```
+  - Windows (PowerShell)
+
+```powershell
+$env:MODELS_DIR = ".\models_release"
+uvicorn src.serving.inference_handler:app --host 0.0.0.0 --port 8000 --reload
+```
 ----------------------------------------------------------------
 
 Data & Features
@@ -239,6 +227,39 @@ Smoke tests:
 - POST {FnUrl}predict (SigV4 signed if using IAM).
 
 ----------------------------------------------------------------
+Signed invocation (IAM + SigV4)
+
+Since the Function URL is protected by AWS IAM, use the provided client:
+
+Environment variables
+
+- `AWS_PROFILE=camelsc1`
+- `AWS_REGION=sa-east-1`
+- `FN_URL=<your Function URL, must end with '/'>`
+Run
+
+```powershell
+python .\signed_post.py
+```
+
+> **Note:** Do not hardcode `FN_URL` or credentials in code. Use environment variables.
+> The 12-digit AWS Account ID is **not** secret, but your Function URL should be treated as sensitive.
+----------------------------------------------------------------
+PowerShell deploy script
+
+A convenience script to build → push → update Lambda → smoke test:
+
+```powershell
+.\deploy.ps1 `
+  -Region "sa-east-1" `
+  -Profile "camelsc1" `
+  -RepoName "camelsc1-serving" `
+  -FnName "camelsc1-inference" `
+  -Tag "v1"
+```
+
+The script logs into ECR, builds & pushes the image, updates the Lambda, and runs a smoke test with `signed_post.py`.
+----------------------------------------------------------------
 
 Reproducibility & Release
 -------------------------
@@ -333,6 +354,19 @@ POST /predict
     "notes": []
   }
 
+----------------------------------------------------------------
+
+Troubleshooting
+
+- **404 on POST to Function URL** → ensure you include `/predict` (`POST {fnUrl}predict`).
+
+- `Runtime.HandlerNotFound` in Lambda → check `CMD ["src.serving.inference_handler.handler"]` and that both `src/` and `src/serving/` have `__init__.py`.
+
+- **"Invalid JSON" when creating CORS via CLI** → on Windows, use a file (`cors.json`) or escape quotes correctly.
+
+- **CloudWatch Logs "tail" on Windows** → use `describe-log-streams` to get the latest stream, then `get-log-events`.
+
+- **CRLF/LF differences on Windows** → use `.gitattributes` to normalize line endings.
 ----------------------------------------------------------------
 
 License & Data
