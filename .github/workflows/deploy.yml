@@ -1,13 +1,80 @@
-name: Deploy
+name: Deploy Lambda (ECR image)
 
 on:
-  workflow_dispatch:      # permite ejecutarlo manualmente
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Docker tag (default v1)"
+        required: false
+        default: v1
   push:
-    branches: [ main ]    # o cuando haya push a main (ajusta si quieres)
+    branches: [ main ]   # <— cámbialo a tu rama por defecto si no es 'main'
+    paths:
+      - 'src/**'
+      - 'models_release/**'
+      - 'requirements-serving.txt'
+      - 'Dockerfile.lambda'
+      - '.github/workflows/deploy.yml'
+
+permissions:
+  id-token: write     # OIDC para AWS
+  contents: read
+
+env:
+  AWS_REGION: sa-east-1
+  ECR_REPOSITORY: camelscl-serving          # <— tu repo ECR
+  FUNCTION_NAME: camelscl-inference         # <— tu función Lambda
+  IMAGE_TAG: ${{ github.event.inputs.tag || 'v1' }}
 
 jobs:
-  deploy:
+  build-and-deploy:
     runs-on: ubuntu-latest
+    concurrency:
+      group: deploy-${{ github.ref }}
+      cancel-in-progress: true
     steps:
-      - uses: actions/checkout@v4
-      - run: echo "Deploy placeholder (añade aquí tus pasos reales)"
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build & push image to ECR
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile.lambda
+          push: true
+          platforms: linux/amd64
+          tags: ${{ steps.ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ env.IMAGE_TAG }}
+
+      - name: Update Lambda to new image
+        run: |
+          aws lambda update-function-code \
+            --function-name "${FUNCTION_NAME}" \
+            --image-uri "${{ steps.ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ env.IMAGE_TAG }}" \
+            --region "${AWS_REGION}"
+
+      - name: Wait until function is updated
+        run: aws lambda wait function-updated --function-name "${FUNCTION_NAME}" --region "${AWS_REGION}"
+
+      # (Opcional) Smoke test: invocación directa
+      # Nota: tu handler es FastAPI + Mangum; para /healthz por 'invoke' se requiere un evento API Gateway.
+      # Déjalo comentado si no lo necesitas.
+      # - name: Smoke test /healthz
+      #   run: |
+      #     set -e
+      #     aws lambda invoke \
+      #       --function-name "${FUNCTION_NAME}" \
+      #       --payload '{"rawPath":"/healthz","requestContext":{"http":{"method":"GET"}}}' \
+      #       --cli-binary-format raw-in-base64-out /dev/stdout | cat
