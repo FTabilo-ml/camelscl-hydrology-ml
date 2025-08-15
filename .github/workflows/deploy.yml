@@ -1,0 +1,19 @@
+name: Deploy camelscl
+
+on:
+  # Ejecutar manualmente desde la pestaña "Actions"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Image tag to deploy (e.g., v1)'
+        required: true
+        default: 'v1'
+
+  # (Opcional) Ejecutar automáticamente al pushear a main
+  push:
+    branches: [ main ]
+    paths:
+      - 'Dockerfile.lambda'
+      - 'requirements-serving.txt'
+      - 'src/**'
+      - 'models_release/**'
