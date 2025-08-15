@@ -6,8 +6,7 @@ on:
   workflow_dispatch: {}
 
 permissions:
-  id-token: write     # <- necesario para OIDC
-  contents: read
+  contents: read   # OIDC no requerido en esta opción
 
 env:
   AWS_REGION: sa-east-1
@@ -23,11 +22,12 @@ jobs:
 
       - uses: docker/setup-buildx-action@v3
 
-      - name: Configure AWS credentials (OIDC)
+      - name: Configure AWS credentials (keys)
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}   # <- OBLIGATORIO
-          aws-region: ${{ env.AWS_REGION }}
+          aws-access-key-id:     ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region:            ${{ env.AWS_REGION }}
 
       - name: Login to Amazon ECR
         uses: aws-actions/amazon-ecr-login@v2
