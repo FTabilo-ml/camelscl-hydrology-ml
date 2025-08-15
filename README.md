@@ -42,7 +42,7 @@ All Python packages under src/ include __init__.py to ensure imports work locall
 
 ----------------------------------------------------------------
 Quickstart (Local)
-
+-------------------
   - Linux/Mac
 
 ```bash
@@ -228,7 +228,7 @@ Smoke tests:
 
 ----------------------------------------------------------------
 Signed invocation (IAM + SigV4)
-
+-------------------------------
 Since the Function URL is protected by AWS IAM, use the provided client:
 
 Environment variables
@@ -246,7 +246,7 @@ python .\signed_post.py
 > The 12-digit AWS Account ID is **not** secret, but your Function URL should be treated as sensitive.
 ----------------------------------------------------------------
 PowerShell deploy script
-
+------------------------
 A convenience script to build → push → update Lambda → smoke test:
 
 ```powershell
@@ -355,9 +355,8 @@ POST /predict
   }
 
 ----------------------------------------------------------------
-
 Troubleshooting
-
+---------------
 - **404 on POST to Function URL** → ensure you include `/predict` (`POST {fnUrl}predict`).
 
 - `Runtime.HandlerNotFound` in Lambda → check `CMD ["src.serving.inference_handler.handler"]` and that both `src/` and `src/serving/` have `__init__.py`.
