@@ -1,19 +1,13 @@
-name: Deploy camelscl
+name: Deploy
 
 on:
-  # Ejecutar manualmente desde la pestaña "Actions"
-  workflow_dispatch:
-    inputs:
-      tag:
-        description: 'Image tag to deploy (e.g., v1)'
-        required: true
-        default: 'v1'
-
-  # (Opcional) Ejecutar automáticamente al pushear a main
+  workflow_dispatch:      # permite ejecutarlo manualmente
   push:
-    branches: [ main ]
-    paths:
-      - 'Dockerfile.lambda'
-      - 'requirements-serving.txt'
-      - 'src/**'
-      - 'models_release/**'
+    branches: [ main ]    # o cuando haya push a main (ajusta si quieres)
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: echo "Deploy placeholder (añade aquí tus pasos reales)"
