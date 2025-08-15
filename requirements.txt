@@ -1,4 +1,21 @@
+# Manipulación y análisis de datos
 pandas
 numpy
-scikit-learn
 pyarrow
+
+# Machine Learning
+scikit-learn
+xgboost
+
+# Visualización (para EDA y README)
+matplotlib
+seaborn
+
+# AWS SDK y utilidades
+boto3
+awscli
+
+# Utilidades generales
+requests
+jupyter
+mangum>=0.17

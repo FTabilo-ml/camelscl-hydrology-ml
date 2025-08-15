@@ -1,0 +1,24 @@
+FROM public.ecr.aws/lambda/python:3.11
+
+# Dependencias del sistema para xgboost
+RUN yum -y install libgomp && yum clean all
+
+WORKDIR ${LAMBDA_TASK_ROOT}
+
+# Instala deps
+COPY requirements-serving.txt .
+RUN pip install --no-cache-dir -r requirements-serving.txt
+
+# Código
+COPY src/ src/
+
+# Modelos “release”
+COPY models_release/ models/
+
+# Variables por defecto
+ENV MODELS_DIR=/var/task/models
+ENV LOG_LEVEL=INFO
+
+# Handler de Lambda (módulo:ruta a "handler")
+CMD ["src.serving.inference_handler.handler"]
+
