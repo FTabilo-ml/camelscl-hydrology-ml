@@ -1,95 +1,13 @@
-name: Deploy Lambda (ECR Image)
+name: Deploy
 
 on:
+  workflow_dispatch:      # permite ejecutarlo manualmente
   push:
-    branches: [ main ]
-    paths:
-      - "src/**"
-      - "models_release/**"
-      - "requirements-serving.txt"
-      - "Dockerfile.lambda"
-      - ".github/workflows/deploy.yml"
-  workflow_dispatch:
-    inputs:
-      image_tag:
-        description: "Optional image tag (default: short SHA)"
-        required: false
-        default: ""
-
-permissions:
-  id-token: write        # necesario para OIDC con AWS
-  contents: read
-
-env:
-  AWS_REGION: ${{ secrets.AWS_REGION }}
-  AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
-  ECR_REPOSITORY: ${{ secrets.ECR_REPOSITORY }}           # p.ej. camelscl-serving
-  LAMBDA_FUNCTION_NAME: ${{ secrets.LAMBDA_FUNCTION_NAME }}  # p.ej. camelscl-inference
+    branches: [ main ]    # o cuando haya push a main (ajusta si quieres)
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      # Credenciales AWS vía OIDC (sin llaves largas)
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}   # arn:aws:iam::<account>:role/<role-con-oidc>
-          aws-region: ${{ env.AWS_REGION }}
-
-      # Login a ECR (obtiene registry y hace docker login)
-      - name: Login to Amazon ECR
-        id: login-ecr
-        uses: aws-actions/amazon-ecr-login@v2
-
-      # Tag de imagen (input manual o short SHA)
-      - name: Compute image tag
-        id: tag
-        run: |
-          if [ -n "${{ github.event.inputs.image_tag }}" ]; then
-            echo "TAG=${{ github.event.inputs.image_tag }}" >> $GITHUB_ENV
-          else
-            echo "TAG=${GITHUB_SHA::7}" >> $GITHUB_ENV
-          fi
-
-      # Buildx (build multiplataforma estable). Lambda x86_64 → linux/amd64
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
-        with:
-          platforms: linux/amd64
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      # Build & Push a ECR usando Dockerfile.lambda
-      - name: Build and push image to ECR
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          file: Dockerfile.lambda
-          platforms: linux/amd64
-          push: true
-          tags: ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ env.TAG }}
-
-      # Actualiza Lambda a la nueva imagen publicada
-      - name: Update Lambda to new image
-        run: |
-          IMAGE_URI="${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ env.TAG }}"
-          aws lambda update-function-code \
-            --function-name "${{ env.LAMBDA_FUNCTION_NAME }}" \
-            --image-uri "$IMAGE_URI" \
-            --region "${{ env.AWS_REGION }}"
-          aws lambda wait function-updated --function-name "${{ env.LAMBDA_FUNCTION_NAME }}" --region "${{ env.AWS_REGION }}"
-
-      # Smoke test opcional (si tienes Function URL en un secret)
-      - name: Smoke test /healthz (optional)
-        if: ${{ secrets.FUNCTION_URL != '' }}
-        env:
-          FN_URL: ${{ secrets.FUNCTION_URL }}
-        run: |
-          set -e
-          curl -sS --fail "${FN_URL}healthz" | jq .
-          echo "Smoke test OK"
+      - uses: actions/checkout@v4
+      - run: echo "Deploy placeholder (añade aquí tus pasos reales)"
